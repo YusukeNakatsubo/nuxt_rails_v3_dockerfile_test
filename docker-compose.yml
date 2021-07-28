@@ -16,9 +16,9 @@ services:
       context: ./api
       args:
         WORKDIR: $WORKDIR
-        API_URL: "http://localhost:$API_PORT"
     environment:
       POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+      API_DOMAIN: "localhost:$FRONT_PORT"
     volumes:
       - ./api:/$WORKDIR
     depends_on:
@@ -32,6 +32,7 @@ services:
       args:
         WORKDIR: $WORKDIR
         CONTAINER_PORT: $CONTAINER_PORT
+        API_URL: "http://localhost:$API_PORT"
     command: yarn run dev
     volumes:
       - ./front:/$WORKDIR

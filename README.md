@@ -235,9 +235,9 @@ default: &default
   ...
 ```
 
-## 6. Nuxt App
+## 6. Nuxt.js App
 
-### 6-1. create new Nuxt App
+### 6-1. create new Nuxt.js App
 
 ```bash
 root $ docker-compose run --rm front yarn create nuxt-app
@@ -266,7 +266,7 @@ Name   Command   State   Ports
 ------------------------------
 ```
 
-## 7. Rails API x Nuxt
+## 7. Rails API x Nuxt.js
 
 ### 7-1. setting Environment variable
 
@@ -324,7 +324,7 @@ EXPOSE ${CONTAINER_PORT}
 root $ docker-compose build api
 ```
 
-### 7-2. create API
+### 7-2. create API on Rails
 
 ```Bash
 # controller
@@ -363,3 +363,129 @@ root $ docker-compose down
 root $ docker-compose ps
 ```
 
+### 7-2. setting axios on Nuxt.js
+
+```Bash
+# install axios
+root $ docker-compose run --rm front yarn add @nuxtjs/axios
+
+front $ touch plugins/axios.js
+```
+
+```JavaScript:front/plugins/axios.js
+export default ({ $axios }) => {
+  // リクエストログ
+  $axios.onRequest((config) => {
+    console.log(config)
+  })
+  // レスポンスログ
+  $axios.onResponse((config) => {
+    console.log(config)
+  })
+  // エラーログ
+  $axios.onError((e) => {
+    console.log(e.response)
+  })
+}
+```
+
+```JavaScript:front/nuxt.config.js
+...
+plugins: [
+  'plugins/axios' // add 
+],
+```
+
+```JavaScript:front/nuxt.config.js
+...
+axios: {
+  // サーバーサイドで行うリクエストに使用されるURL
+  // baseURL: process.env.API_URL
+  // クライアントサイドで行うリクエストに使用されるURL(デフォルト: baseURL)
+  // browserBaseURL: <URL>
+},
+```
+
+```JavaScript:front/pages/index.vue
+<template>
+  <div>
+    <button
+      type="button"
+      name="button"
+      @click="getMsg"
+    >
+      RailsからAPIを取得する
+    </button>
+    <div
+      v-for="(msg, i) in msgs"
+      :key="i"
+    >
+      {{ msg }}
+    </div>
+  </div>
+</template>
+
+<script>
+export default {
+  data () {
+    return {
+      msgs: []
+    }
+  },
+  methods: {
+    getMsg () {
+      this.$axios.$get('/api/v1/hello')
+        .then(res => this.msgs.push(res))
+    }
+  }
+}
+</script>
+```
+
+### 7-3. setting CORS counterplan
+
+```Bash:docker-compose.yml
+api:
+    build:
+      context: ./api
+      args:
+        WORKDIR: $WORKDIR
+    environment:
+      POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+      API_DOMAIN: "localhost:$FRONT_PORT"       # add
+
+  ...
+
+front:
+    build:
+      context: ./front
+      args:
+        WORKDIR: $WORKDIR
+        CONTAINER_PORT: $CONTAINER_PORT
+        API_URL: "http://localhost:$API_PORT"   # add
+```
+
+```ruby:api/Gemfile
+# active line 26
+gem 'rack-cors'
+```
+
+```Bash
+# Rebuilding api directory for update Gemfile
+root $ docker-compose build api
+
+# check
+root $ docker-compose run --rm api bundle info rack-cors
+```
+
+```ruby:api/config/initializers/cors.rb
+Rails.application.config.middleware.insert_before 0, Rack::Cors do
+  allow do
+    origins ENV["API_DOMAIN"] || ""
+
+    resource '*',
+      headers: :any,
+      methods: [:get, :post, :put, :patch, :delete, :options, :head]
+  end
+end
+```
